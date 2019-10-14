@@ -1,9 +1,12 @@
 import math, random
 import pygame.math as gmath
 
+from game_time import frame_time
+
 class Game:
     def __init__(self, width, height):
-        self.victor = None
+        self.winner = None
+        self.victory_time = 0
 
         self.width = width
         self.height = height
@@ -27,9 +30,10 @@ class WorldItem:
 
 
 class Player(WorldItem):
-    def __init__(self, index):
+    def __init__(self, index, own):
         super().__init__()
         self.player_index = index
+        self.own = own
         self.last_shot = 0
 
         self.dead = False
@@ -58,7 +62,7 @@ def new_game(player_amount, width, height):
     game = Game(width, height)
 
     for i in range(0, player_amount):
-        player = Player(i)
+        player = Player(i, i == 0)
         set_random_location(player, game)
         game.players.append(player)
 
@@ -68,7 +72,8 @@ speed = 1
 bullet_speed = 3
 shoot_cooldown = 200
 respawn_cooldown = 1000
-victory_condition = 2
+victory_condition = 3
+rematch_time = 2000
 
 def update_rotation(player, character_input):
     direction = character_input.look_direction - player.location
@@ -80,8 +85,8 @@ def update_location(player, character_input):
     player.location += character_input.movement * speed
 
 
-def shoot(game, player, time):
-    player.last_shot = time
+def shoot(game, player):
+    player.last_shot = frame_time()
     
     real_rotation = player.rotation * math.pi / -180
 
@@ -98,9 +103,9 @@ def shoot(game, player, time):
     game.bullets.append(bullet)
 
 
-def update_shooting(game, player, character_input, time):
-    dt = time - player.last_shot
-    if character_input.shooting and dt >= shoot_cooldown: shoot(game, player, time)
+def update_shooting(game, player, character_input):
+    dt = frame_time() - player.last_shot
+    if character_input.shooting and dt >= shoot_cooldown: shoot(game, player)
 
 
 def set_random_location(player, game):
@@ -116,20 +121,20 @@ def revive(player, game):
     set_random_location(player,game)
 
 
-def update_character(time, game, player, character_input):
-    if player.dead and time - player.death_time >= respawn_cooldown:
+def update_character(game, player, character_input):
+    if player.dead and frame_time() - player.death_time >= respawn_cooldown:
         revive(player, game)
 
     if player.dead: return
 
     update_location(player, character_input)
     update_rotation(player, character_input)
-    update_shooting(game, player, character_input, time)
+    update_shooting(game, player, character_input)
 
 
-def update_characters(time, game, character_inputs):
+def update_characters(game, character_inputs):
     for player in game.players:
-        update_character(time, game, player, character_inputs[player.player_index])
+        update_character(game, player, character_inputs[player.player_index])
 
 
 def update_bullets(game):
@@ -163,23 +168,23 @@ def detect_walls(game):
         bullet.to_destroy = not in_limits
 
 
-def hit(bullet, player, time):
+def hit(bullet, player):
     bullet.to_destroy = True
     bullet.owner.kills += 1 if bullet.owner != player else 0
-    player.die(time)
+    player.die(frame_time())
 
 
-def detect_bullet_hits(game, time):
+def detect_bullet_hits(game):
     for bullet in game.bullets:
         for player in game.players:
             if player.dead or not bullet.hit(player): continue
 
-            hit(bullet, player, time)
+            hit(bullet, player)
 
 
-def collision_detection(game, time):
+def collision_detection(game):
     detect_walls(game)
-    detect_bullet_hits(game, time)
+    detect_bullet_hits(game)
 
 
 def delete_bullets(game):
@@ -195,15 +200,41 @@ def delete_bullets(game):
 def check_victory(game):
     for player in game.players:
         if player.kills < victory_condition: continue
-        game.victor = player
+        game.winner = player
+        game.victory_time = frame_time()
         return
 
 
-def update_world(time, game, character_inputs):
-    update_bullets(game)
-    update_characters(time, game, character_inputs)
+def reset_game(game):
+    game.winner = None
 
-    collision_detection(game, time)
+    for player in game.players:
+        player.dead = False
+        player.kills = 0
+        player.last_shot = 0
+        set_random_location(player, game)
+
+    game.bullets = []
+
+
+def check_is_playing(game):
+    if game.winner == None: return True
+
+    elapsed = frame_time() - game.victory_time
+
+    if elapsed < rematch_time: return False
+    
+    reset_game(game)
+    return True
+
+
+def update_world(game, character_inputs):
+    if not check_is_playing(game): return
+
+    update_bullets(game)
+    update_characters(game, character_inputs)
+
+    collision_detection(game)
     delete_bullets(game)
 
     check_victory(game)

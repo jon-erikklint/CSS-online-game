@@ -73,7 +73,7 @@ def draw_scores(game):
 def normal_mode(game):
     for player in game.players:
         if player.dead: continue
-        draw_item(player, "player")
+        draw_item(player, "player" if player.own else "other")
 
     for bullet in game.bullets:
         draw_item(bullet, "bullet")
@@ -84,13 +84,13 @@ def normal_mode(game):
 def victory_mode(game):
     x = game.width / 2
     y = game.height / 2
-    draw_text("Winner: Player {}".format(game.victor.player_index), x, y, True)
+    draw_text("Winner: Player {}".format(game.winner.player_index), x, y, True)
 
 
 def update_screen(game):
     screen.fill(black)
 
-    if game.victor == None:
+    if game.winner == None:
         normal_mode(game)
     else:
         victory_mode(game)

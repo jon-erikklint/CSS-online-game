@@ -10,16 +10,14 @@ class CharacterInput:
     def __str__(self):
         return "Look at: {}, movement: {}, shooting: {}".format(self.look_direction, self.movement, self.shooting)
 
-character_inputs = {}
 player_input = None
 
-def init_input(game, player):
+def init_input(game):
     global player_input
 
     for player in game.players:
-        character_inputs[player.player_index] = CharacterInput()
-
-    player_input = character_inputs[player.player_index]
+        if player.own:
+            player_input = CharacterInput()
 
 
 def update_look_at(character_input, event):
@@ -58,4 +56,4 @@ def read_input():
         elif event.type == pygame.KEYDOWN: update_movement(character_input, event)
         elif event.type == pygame.KEYUP: update_movement(character_input, event)
 
-    return character_inputs
+    return player_input
