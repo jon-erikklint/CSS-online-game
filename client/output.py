@@ -34,7 +34,7 @@ def draw_item(item, image_name):
     rotated_rect = rotated_image.get_rect()
     height, width = rotated_rect.height, rotated_rect.width
 
-    screen.blit(rotated_image, item.location - gmath.Vector2(width / 2, height / 2))
+    screen.blit(rotated_image, gmath.Vector2(item.x, item.y) - gmath.Vector2(width / 2, height / 2))
 
 
 def draw_text(text, x, y, centered = False):
@@ -53,15 +53,14 @@ def draw_text(text, x, y, centered = False):
     screen.blit(textrender, rect)
 
 
-def draw_scores(game):
+def draw_scores(info, game):
     players = game.players.copy()
     players.sort(key = lambda x: x.kills, reverse=True)
 
     texts = ["Scores:"]
     texts.extend(map(lambda x: "Player {}: {}".format(x.player_index, x.kills), players))
 
-    font = resources["font"]
-    x = game.width - 90
+    x = info.width - 90
     y = 0
     y_increase = 20
     for text in texts:
@@ -70,7 +69,7 @@ def draw_scores(game):
         y += y_increase
 
 
-def normal_mode(game):
+def normal_mode(info, game):
     for player in game.players:
         if player.dead: continue
         draw_item(player, "player" if player.own else "other")
@@ -78,21 +77,25 @@ def normal_mode(game):
     for bullet in game.bullets:
         draw_item(bullet, "bullet")
 
-    draw_scores(game)
+    draw_scores(info, game)
 
 
-def victory_mode(game):
-    x = game.width / 2
-    y = game.height / 2
-    draw_text("Winner: Player {}".format(game.winner.player_index), x, y, True)
+def victory_mode(info, game):
+    x = info.width / 2
+    y = info.height / 2
+    draw_text("Winner: Player {}".format(game.winner), x, y, True)
 
 
-def update_screen(game):
+def update_screen(info, game):
     screen.fill(black)
 
+    if game == None:
+        pygame.display.flip()
+        return
+
     if game.winner == None:
-        normal_mode(game)
+        normal_mode(info, game)
     else:
-        victory_mode(game)
+        victory_mode(info, game)
 
     pygame.display.flip()

@@ -12,12 +12,10 @@ class CharacterInput:
 
 player_input = None
 
-def init_input(game):
+def init_input():
     global player_input
 
-    for player in game.players:
-        if player.own:
-            player_input = CharacterInput()
+    player_input = CharacterInput()
 
 
 def update_look_at(character_input, event):
