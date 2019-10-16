@@ -97,7 +97,6 @@ class TransportHandler:
 
         for message, ip in message_infos:
             client = self.clients_by_ip.get(ip)
-            print(client)
             if client == None:
                 self._create_receiver(ip)
             else:

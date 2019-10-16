@@ -8,6 +8,7 @@ class Socket:
         self.CLIENT_PORT = client_port
 
         self.output_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.output_socket.bind((self.OWN_IP, self.CLIENT_PORT))
         self.input_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.input_socket.bind((self.OWN_IP, self.OWN_PORT))
         self.input_socket.setblocking(False)
