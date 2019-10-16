@@ -5,7 +5,6 @@ class Socket:
         self.OWN_IP = own_ip
         self.OWN_PORT = own_port
 
-        self.CLIENT_IP = "127.0.0.1"
         self.CLIENT_PORT = client_port
 
         self.output_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

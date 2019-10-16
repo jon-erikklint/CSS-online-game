@@ -62,20 +62,32 @@ class ServerState:
         self.own_index = initializer.player_index
 
 
+retry_interval = 1000
+
 class TransportHandler:
     def __init__(self, socket):
         self.socket = socket
         self.server = None
         self.game_state = None
+        self.last_connect_try = 0
 
-    def connect(self, server_ip):
+    def connect(self, server_ip, time):
         self.server = ServerState(server_ip)
-        self._send(ClientInitializer())
+        self._try_connect(time)
 
-    def get_game_info(self):
+    def get_game_info(self, time):
         self._receive_initialize()
 
-        return self.server.game_info
+        info = self.server.game_info
+
+        if info == None and time - self.last_connect_try >= retry_interval:
+            self._try_connect(time)
+
+        return info
+
+    def _try_connect(self, time):
+        self._send(ClientInitializer())
+        self.last_connect_try = time
 
     def get_game_state(self):
         self._receive_game_state()
