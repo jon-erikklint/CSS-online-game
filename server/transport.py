@@ -52,6 +52,8 @@ class Receiver:
     def __init__(self, ip, player_index):
         self.ip = ip
         self.player_index = player_index
+
+        self.current_package_number = -1
         self.current_input = CharacterInput(player_index)
 
 
@@ -62,10 +64,17 @@ class PlayerInitializer:
         self.height = height
 
 
+class Package:
+    def __init__(self, package_number, content):
+        self.package_number = package_number
+        self.content = content
+
+
 class TransportHandler:
     def __init__(self, game, socket):
         self.socket = socket
         self.game = game
+        self.package_number = 0 # no need for lapping as with 100 frames per second the package numbers will run out in 250 days assuming int
 
         self.clients = []
         self.clients_by_ip = {}
@@ -82,14 +91,22 @@ class TransportHandler:
 
     def send_state(self):
         game_state = GameState(self.game)
-        self._broadcast(game_state)
-        
+        package = self._get_package(game_state)
+        self._broadcast(package)
+
+    def _get_package(self, data):
+        number = self.package_number
+        self.package_number += 1
+        package = Package(number, data)
+
+        return package  
 
     def _send(self, ip, message):
         self.socket.add_to_queue(message, ip)
 
     def _broadcast(self, message):
         for client in self.clients:
+            self._send(client.ip, message) # double the trouble
             self._send(client.ip, message)
 
     def _receive(self):
@@ -120,4 +137,8 @@ class TransportHandler:
 
     def _save_input(self, client, message):
         index = client.player_index
-        client.current_input = create_character_input(message, index)
+        package_number = message.get("package_number")
+
+        if client.current_package_number < package_number:
+            client.current_input = create_character_input(message.get("content"), index)
+            client.package_number = package_number

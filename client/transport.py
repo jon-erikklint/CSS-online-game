@@ -62,11 +62,20 @@ class ServerState:
         self.own_index = initializer.player_index
 
 
+class Package:
+    def __init__(self, package_number, content):
+        self.package_number = package_number
+        self.content = content
+
+
 retry_interval = 1000
 
 class TransportHandler:
     def __init__(self, socket):
         self.socket = socket
+        self.package_number = 0
+        self.got_package_number = -1
+
         self.server = None
         self.game_state = None
         self.last_connect_try = 0
@@ -96,7 +105,16 @@ class TransportHandler:
 
     def send_input(self, inputs):
         client_input = ClientInput(inputs)
-        self._send(client_input)
+        package = self._get_package(client_input)
+        self._send(package) #double the trouble
+        self._send(package)
+
+    def _get_package(self, data):
+        number = self.package_number
+        self.package_number += 1
+        package = Package(number, data)
+
+        return package  
 
     def _send(self, message):
         self.socket.add_to_queue(message, self.server.ip)
@@ -114,8 +132,12 @@ class TransportHandler:
         if messages == None: messages = self._receive()
 
         for message in messages:
-            if message.get("player_index") == None:
-                self.game_state = GameState(message, self.server.game_info.player_index)
+            if message.get("package_number") != None:
+                package_number = message.get("package_number")
+                if package_number <= self.got_package_number: continue
+
+                self.game_state = GameState(message.get("content"), self.server.game_info.player_index)
+                self.got_package_number = package_number
 
     def _receive(self):
         message_infos = self.socket.read_from_queue()
