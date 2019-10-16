@@ -25,6 +25,14 @@ class Game:
 
         return player.player_index
 
+    def remove_player(self, player_index):
+        delete_player = None
+        for player in self.players:
+            if player.player_index == player_index:
+                delete_player = player
+                break
+
+        self.players.remove(delete_player)
 
     def get_random_location(self, player):
         x = random.random() * (self.width - player.radius * 2) + player.radius

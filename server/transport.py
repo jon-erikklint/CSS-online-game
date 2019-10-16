@@ -1,6 +1,7 @@
 import json, select
 import pygame.math as gmath
 from network import Socket
+from game_time import frame_time
 
 class CharacterInput:
     def __init__(self, player_index):
@@ -49,11 +50,12 @@ class GameState:
 
 
 class Receiver:
-    def __init__(self, ip, player_index):
+    def __init__(self, ip, player_index, time):
         self.ip = ip
         self.player_index = player_index
 
         self.current_package_number = -1
+        self.last_message = time
         self.current_input = CharacterInput(player_index)
 
 
@@ -70,6 +72,9 @@ class Package:
         self.content = content
 
 
+disconnect_time = 10000
+
+
 class TransportHandler:
     def __init__(self, game, socket):
         self.socket = socket
@@ -82,12 +87,27 @@ class TransportHandler:
 
     def get_inputs(self):
         self._receive()
+        self._check_for_dead_connections()
 
         inputs = {}
         for client in self.clients:
             inputs[client.player_index] = client.current_input
 
         return inputs
+
+    def _check_for_dead_connections(self):
+        to_remove = []
+        for client in self.clients:
+            passed_time = frame_time() - client.last_message
+            if passed_time > disconnect_time: to_remove.append(client)
+
+        for client in to_remove:
+            self.clients.remove(client)
+            del self.clients_by_id[client.player_index]
+            del self.clients_by_ip[client.ip]
+
+            self.game.remove_player(client.player_index)
+
 
     def send_state(self):
         game_state = GameState(self.game)
@@ -124,7 +144,7 @@ class TransportHandler:
 
     def _create_receiver(self, ip):
         index = self.game.add_new_player()
-        receiver = Receiver(ip, index)
+        receiver = Receiver(ip, index, frame_time())
 
         self.clients.append(receiver)
         self.clients_by_id[index] = receiver
@@ -142,3 +162,4 @@ class TransportHandler:
         if client.current_package_number < package_number:
             client.current_input = create_character_input(message.get("content"), index)
             client.package_number = package_number
+            client.last_message = frame_time()
