@@ -44,6 +44,11 @@ def update_movement(character_input, event):
     character_input.movement += direction
 
 
+def local_input():
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT: sys.exit()
+
+
 def read_input():
     character_input = player_input
     for event in pygame.event.get():

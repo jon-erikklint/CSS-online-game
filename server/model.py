@@ -11,8 +11,26 @@ class Game:
         self.width = width
         self.height = height
 
+        self.current_index = 0
+
         self.players = []
         self.bullets = []
+
+    def add_new_player(self):
+        player = Player(self.current_index)
+        player.location = self.get_random_location(player)
+        
+        self.players.append(player)
+        self.current_index += 1
+
+        return player.player_index
+
+
+    def get_random_location(self, player):
+        x = random.random() * (self.width - player.radius * 2) + player.radius
+        y = random.random() * (self.height - player.radius * 2) + player.radius
+
+        return gmath.Vector2(x, y)
 
 
 class WorldItem:
@@ -30,10 +48,9 @@ class WorldItem:
 
 
 class Player(WorldItem):
-    def __init__(self, index, own):
+    def __init__(self, index):
         super().__init__()
         self.player_index = index
-        self.own = own
         self.last_shot = 0
 
         self.dead = False
@@ -57,16 +74,6 @@ class Bullet(WorldItem):
         self.to_destroy = False
         self.direction = gmath.Vector2(0,0)
 
-
-def new_game(player_amount, width, height):
-    game = Game(width, height)
-
-    for i in range(0, player_amount):
-        player = Player(i, i == 0)
-        set_random_location(player, game)
-        game.players.append(player)
-
-    return game
 
 speed = 1
 bullet_speed = 3
@@ -108,17 +115,10 @@ def update_shooting(game, player, character_input):
     if character_input.shooting and dt >= shoot_cooldown: shoot(game, player)
 
 
-def set_random_location(player, game):
-    x = random.random() * (game.width - player.radius * 2) + player.radius
-    y = random.random() * (game.height - player.radius * 2) + player.radius
-
-    player.location = gmath.Vector2(x, y)
-
-
 def revive(player, game):
     player.dead = False
 
-    set_random_location(player,game)
+    player.location = game.get_random_location(player)
 
 
 def update_character(game, player, character_input):
@@ -212,7 +212,7 @@ def reset_game(game):
         player.dead = False
         player.kills = 0
         player.last_shot = 0
-        set_random_location(player, game)
+        player.location = game.get_random_location(player)
 
     game.bullets = []
 

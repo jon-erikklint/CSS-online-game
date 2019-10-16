@@ -1,68 +1,52 @@
-from transport import *
+import socket, json, select
 
-class ClientInput:
-    def __init__(self, character_input, player_index):
-        self.player_index = player_index
+class Socket:
+    def __init__(self, own_ip, own_port, client_port):
+        self.OWN_IP = own_ip
+        self.OWN_PORT = own_port
 
-        self.dx = character_input.movement.x
-        self.dy = character_input.movement.y
-        self.shooting = character_input.shooting
-        self.lookx = character_input.look_direction.x
-        self.looky = character_input.look_direction.y
+        self.CLIENT_IP = "127.0.0.1"
+        self.CLIENT_PORT = client_port
 
+        self.output_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.input_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.input_socket.bind((self.OWN_IP, self.OWN_PORT))
+        self.input_socket.setblocking(False)
 
-class GameInfo:
-    def __init__(self, width, height):
-        self.width = width
-        self.height = height
+        self.inputs = [self.input_socket]
+        self.outputs = [self.output_socket]
 
+        self.input_message_queue = []
+        self.output_message_queue = []
 
-class PlayerState:
-    def __init__(self, json):
-        self.player_index = json["player_index"]
-        self.kills = json["kills"]
-        self.dead = json["dead"]
+    def update(self):
+        readable, writeable, _ = select.select(self.inputs, self.outputs, [])
+        for r in readable: self._read(r)
+        for w in writeable: self._write(w)
 
-        self.x = json["x"]
-        self.y = json["y"]
-        self.rotation = json["rotation"]
+    def _read(self, r):
+        raw_data, recv = r.recvfrom(2048)
 
+        data = json.loads(raw_data)
+        ip = recv[0]
 
-class BulletState:
-    def __init__(self, json):
-        self.x = json["x"]
-        self.y = json["y"]
-        self.rotation = json["rotation"]
-        
+        self.input_message_queue.append((data, ip))
 
-class GameState:
-    def __init__(self, json):
-        self.winner = json["winner"]
+    def _write(self, w):
+        if len(self.output_message_queue) == 0: return
 
-        self.players = []
-        for p in json["players"]:
-            self.players.append(PlayerState(p))
-        self.bullets = []
-        for p in json["bullets"]:
-            self.bullets.append(BulletState(p))
+        message, ip = self.output_message_queue.pop(0)
 
+        w.sendto(message, (ip, self.CLIENT_PORT))
 
-def get_game_info():
-    game_info = GameInfo(640, 640)
-    return game_info
+    def read_from_queue(self):
+        messages = self.input_message_queue
+        self.input_message_queue = []
 
+        return messages
 
-def send_inputs(inputs, player_id):
-    client_input = ClientInput(inputs, player_id)
-    send(client_input)
+    def add_to_queue(self, message, ip):
+        message = json.dumps(message.__dict__, default = lambda x: x.__dict__).encode()
 
-game_state = None
-
-def read_game_state(own_index):
-    global game_state
-    values = receive(GameState)
-    if len(values) > 0:
-        game_state = values[0]
-        for player in game_state.players:
-            player.own = player.player_index == own_index
-    return game_state
+        self.output_message_queue.append((message, ip))
+    

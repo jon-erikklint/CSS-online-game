@@ -1,77 +1,52 @@
-import pygame.math as gmath
-from transport import *
+import socket, json, select
 
-class CharacterInput:
-    def __init__(self, player_index):
-        self.player_index = player_index
-        self.look_direction = gmath.Vector2(0, 0)
-        self.movement = gmath.Vector2(0, 0)
-        self.shooting = False
+class Socket:
+    def __init__(self, own_ip, own_port, client_port):
+        self.OWN_IP = own_ip
+        self.OWN_PORT = own_port
 
-    def __str__(self):
-        return "Look at: {}, movement: {}, shooting: {}".format(self.look_direction, self.movement, self.shooting)
+        self.CLIENT_IP = "127.0.0.1"
+        self.CLIENT_PORT = client_port
 
+        self.output_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.input_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.input_socket.bind((self.OWN_IP, self.OWN_PORT))
+        self.input_socket.setblocking(False)
 
-def create_character_input(json):
-    cinput = CharacterInput(json["player_index"])
-    cinput.look_direction = gmath.Vector2(json["lookx"], json["looky"])
-    cinput.movement = gmath.Vector2(json["dx"], json["dy"])
-    cinput.shooting = json["shooting"]
+        self.inputs = [self.input_socket]
+        self.outputs = [self.output_socket]
 
-    return cinput
+        self.input_message_queue = []
+        self.output_message_queue = []
 
+    def update(self):
+        readable, writeable, _ = select.select(self.inputs, self.outputs, [])
+        for r in readable: self._read(r)
+        for w in writeable: self._write(w)
 
-class PlayerState:
-    def __init__(self, player):
-        self.player_index = player.player_index
-        self.dead = player.dead
-        self.kills = player.kills
+    def _read(self, r):
+        raw_data, recv = r.recvfrom(2048)
 
-        self.x = player.location.x
-        self.y = player.location.y
-        self.rotation = player.rotation
+        data = json.loads(raw_data)
+        ip = recv[0]
 
+        self.input_message_queue.append((data, ip))
 
-class BulletState:
-    def __init__(self, bullet):
-        self.x = bullet.location.x
-        self.y = bullet.location.y
-        self.rotation = bullet.rotation
-        
+    def _write(self, w):
+        if len(self.output_message_queue) == 0: return
 
-class GameState:
-    def __init__(self, game):
-        self.winner = game.winner.player_index if game.winner != None else None
+        message, ip = self.output_message_queue.pop(0)
 
-        self.players = list(map(lambda p: PlayerState(p), game.players))
-        self.bullets = list(map(lambda b: BulletState(b), game.bullets))
+        w.sendto(message, (ip, self.CLIENT_PORT))
 
+    def read_from_queue(self):
+        messages = self.input_message_queue
+        self.input_message_queue = []
 
-class ClientInputs:
-    def __init__(self, players):
-        self.inputs = {}
-        for player in players:
-            self.inputs[player.player_index] = CharacterInput(player.player_index)
+        return messages
 
-    def update(self, client_input):
-        self.inputs[client_input.player_index] = client_input
+    def add_to_queue(self, message, ip):
+        message = json.dumps(message.__dict__, default = lambda x: x.__dict__).encode()
 
-
-client_inputs = None
-
-
-def initialize_network_server(game):
-    global client_inputs
-    client_inputs = ClientInputs(game.players)
-
-
-def read_inputs():
-    inputs = receive(create_character_input)
-    for client_input in inputs:
-        client_inputs.update(client_input)
-    return client_inputs.inputs
-
-
-def send_game_state(game):
-    game_state = GameState(game)
-    send(game_state)
+        self.output_message_queue.append((message, ip))
+    
