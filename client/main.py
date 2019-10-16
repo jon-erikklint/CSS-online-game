@@ -10,7 +10,7 @@ if len(sys.argv) < 2:
 server_ip = sys.argv[1]
 
 pygame.init()
-socket = Socket("127.0.0.1", 5002, 5001)
+socket = Socket("0.0.0.0", 5002, 5001)
 transport = TransportHandler(socket)
 
 set_frame()

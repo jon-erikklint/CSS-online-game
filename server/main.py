@@ -6,7 +6,7 @@ from transport import TransportHandler
 width, height = 640, 640
 
 game = Game(width, height)
-socket = Socket("127.0.0.1", 5001, 5002)
+socket = Socket("0.0.0.0", 5001, 5002)
 transport_handler = TransportHandler(game, socket)
 
 last_frame = 0

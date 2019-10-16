@@ -97,11 +97,14 @@ class TransportHandler:
 
         for message, ip in message_infos:
             client = self.clients_by_ip.get(ip)
+            print(client)
             if client == None:
                 self._create_receiver(ip)
             else:
-                index = client.player_index
-                client.current_input = create_character_input(message, index)
+                if message.get("asd") != None: 
+                    self._send_initialization(client)
+                else:
+                    self._save_input(client, message)
 
     def _create_receiver(self, ip):
         index = self.game.add_new_player()
@@ -111,4 +114,11 @@ class TransportHandler:
         self.clients_by_id[index] = receiver
         self.clients_by_ip[ip] = receiver
 
-        self._send(ip, PlayerInitializer(index, self.game.width, self.game.height))
+        self._send_initialization(receiver)
+
+    def _send_initialization(self, client):
+        self._send(client.ip, PlayerInitializer(client.player_index, self.game.width, self.game.height))
+
+    def _save_input(self, client, message):
+        index = client.player_index
+        client.current_input = create_character_input(message, index)
